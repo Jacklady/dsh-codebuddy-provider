@@ -61,12 +61,19 @@ jobs:
           { "name": "@deepseek-ai/schemastery", "version": "0.0.0-stub", "type": "module", "main": "index.js" }
           JSON
           cat > node_modules/@deepseek-ai/schemastery/index.js <<'JS'
-          const chain = new Proxy(function () {}, {
-            get: () => chain,
-            apply: () => chain,
-          });
-          export const z = { object: () => chain, dict: () => chain, string: () => chain, number: () => chain, union: () => chain, array: () => chain, boolean: () => chain };
-          export default { z };
+          // Minimal stub: every schema builder is a callable chainable proxy.
+          // The default export is the schema namespace itself (plugins import it as `z`).
+          function makeChain() {
+            const target = function () {};
+            return new Proxy(target, {
+              get() { return makeChain(); },
+              apply() { return makeChain(); },
+              construct() { return makeChain(); },
+            });
+          }
+          const schema = new Proxy({}, { get: () => makeChain() });
+          export const z = schema;
+          export default schema;
           JS
           node --input-type=module -e "
             const m = await import('./src/index.js');
