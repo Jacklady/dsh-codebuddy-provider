@@ -1,0 +1,21 @@
+# dsh-codebuddy-provider 的 bundle patch。
+#
+# 用 insert 把自己挂进 entry list：id 是插件导出的 name，name 是包名。
+# 插件自己的配置项通过 config 传入。
+#
+# CodeBuddy 路由的模型列表（baseURL / models 等）由安装脚本写进
+# profile 的 cordis.patch.yml，用户可随时修改而不必动插件。
+- insert:
+    - id: llm-codebuddy
+      name: dsh-codebuddy-provider
+      config:
+        # 固定某个账号（.info 文件名片段或 uid）；留空则自动轮换
+        account: ''
+        # 账号被风控后的冷却时长（毫秒）
+        cooldownMs: 1800000
+        # 相邻请求最小间隔（毫秒），避免高频触发服务端风控
+        minIntervalMs: 1200
+        # 覆盖 User-Agent；留空则使用官方 CLI 身份
+        userAgent: ''
+        # CodeBuddy 路由在模型目录中的显示名
+        displayName: 'CodeBuddy'

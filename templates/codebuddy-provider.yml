@@ -1,0 +1,21 @@
+# dsh-codebuddy-provider 安装后，CodeBuddy 官方账号路由（codebuddy-official）由插件自己提供：
+# 它使用官方登录态鉴权、自动多账号轮换、带官方渠道校验头，因此不能写成普通的
+# OpenAI 兼容 provider —— 那会绕过官方鉴权并触发渠道校验失败。
+#
+# 要添加**其它**模型 API（任意 OpenAI 兼容端点），照下面写法写进同一个 providers 字典：
+#
+# - id: llm-pi-ai
+#   config:
+#     providers:
+#       my-gateway:
+#         displayName: My Gateway
+#         api: openai-completions
+#         baseURL: https://api.example.com/v1
+#         apiKeyEnv: MY_GATEWAY_KEY
+#         models:
+#           - id: qwen-max
+#             contextWindow: 128000
+#             maxTokens: 8000
+#
+# 注意：cordis.patch.yml 顶层必须是 YAML 数组，因此注释写在数组元素内部。
+[]

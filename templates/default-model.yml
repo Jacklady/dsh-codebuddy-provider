@@ -1,0 +1,5 @@
+- id: agent-default-model
+  config:
+    # 把默认模型切到 CodeBuddy 官方账号
+    provider: codebuddy-official
+    model: deepseek-v4.1-flash
