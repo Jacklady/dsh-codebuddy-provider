@@ -1,0 +1,19 @@
+# 默认按文本处理，检出时统一 LF
+* text=auto eol=lf
+
+# Windows 脚本保留 CRLF。
+# 注意：脚本文件本身带 UTF-8 BOM（由打包脚本保证），
+# 否则 Windows 上的脚本宿主会按 ANSI 解析，中文注释会破坏 param() 块。
+*.ps1 text eol=crlf
+
+# 这些文件会被 dsh 用 JSON.parse / YAML 解析：
+# BOM 会让 JSON.parse 失败，换行被压成一行会让 YAML 数组失效。
+*.json text eol=lf
+*.yml text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.ico binary

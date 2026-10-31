@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax check (JS)
+        run: |
+          for f in $(find src scripts -name '*.js' -o -name '*.mjs'); do
+            node --check "$f" || exit 1
+          done
+
+      - name: JSON valid
+        run: |
+          for f in $(find . -name '*.json' -not -path './node_modules/*'); do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8').replace(/^\uFEFF/,''))" || exit 1
+          done
+
+      - name: No BOM in data files (JSON / YAML / JS)
+        run: |
+          for f in $(find src scripts templates -name '*.js' -o -name '*.mjs' -o -name '*.json' -o -name '*.yml'); do
+            if head -c 3 "$f" | od -An -tx1 | grep -q 'ef bb bf'; then
+              echo "BOM found in $f (breaks JSON.parse / YAML parsing)"
+              exit 1
+            fi
+          done
+
+      - name: Installer keeps UTF-8 BOM (Windows script host requirement)
+        run: |
+          head -c 3 scripts/install.ps1 | od -An -tx1 | grep -q 'ef bb bf' \
+            || { echo 'scripts/install.ps1 must be stored with a UTF-8 BOM'; exit 1; }
+
+      - name: No credentials committed
+        run: |
+          if grep -rInE 'eyJhbGciOi|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,}' \
+               --exclude-dir=node_modules . ; then
+            echo 'possible credential material found in the repository'
+            exit 1
+          fi
+
+      - name: Plugin loads and exposes its exports
+        run: |
+          # schemastery 是 peer/普通依赖，这里用最小 stub 让模块能被加载，
+          # 以便校验导出契约；真实依赖由使用者的 dsh 安装提供。
+          mkdir -p node_modules/@deepseek-ai/schemastery
+          cat > node_modules/@deepseek-ai/schemastery/package.json <<'JSON'
+          { "name": "@deepseek-ai/schemastery", "version": "0.0.0-stub", "type": "module", "main": "index.js" }
+          JSON
+          cat > node_modules/@deepseek-ai/schemastery/index.js <<'JS'
+          const chain = new Proxy(function () {}, {
+            get: () => chain,
+            apply: () => chain,
+          });
+          export const z = { object: () => chain, dict: () => chain, string: () => chain, number: () => chain, union: () => chain, array: () => chain, boolean: () => chain };
+          export default { z };
+          JS
+          node --input-type=module -e "
+            const m = await import('./src/index.js');
+            const required = ['Config', 'apply', 'inject', 'name'];
+            for (const key of required) {
+              if (m[key] === undefined) throw new Error('missing export: ' + key);
+            }
+            if (typeof m.apply !== 'function') throw new Error('apply must be a function');
+            console.log('exports OK:', Object.keys(m).length, 'name =', m.name);
+          "
