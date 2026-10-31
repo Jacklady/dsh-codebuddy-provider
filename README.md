@@ -8,7 +8,34 @@ Connects **official CodeBuddy / WorkBuddy accounts** to [DeepSeek Harness](https
 - Domain fallback: when every account fails, the request is retried against the other domain (risk control is isolated per domain + account)
 - Automatic token renewal: the official refresh endpoint is called shortly before expiry and the login file is written back atomically
 - Official protocol: the request identity and User-Agent match the official CLI, passing the server-side channel check
+- **QR-code login**: a built-in dependency-free QR encoder draws the code right in your terminal - scan it and you are in
 - **Manual model API configuration**: any OpenAI-compatible endpoint can be configured in dsh, not just CodeBuddy
+
+---
+
+## User guide
+
+**First time here?** -> [Complete user guide](./docs/guide.md) ·
+[完整操作教程（中文）](./docs/guide.zh.md)
+
+The guide covers four usage scenarios step by step, deployment on servers and headless
+environments, managing multiple accounts, a **troubleshooting table for eight common
+failures**, and a command reference.
+
+<details>
+<summary>30 second overview</summary>
+
+```bash
+git clone https://github.com/Jacklady/dsh-codebuddy-provider.git
+cd dsh-codebuddy-provider
+node scripts/login.mjs                          # QR-code login
+.\scripts\install.ps1 -Profile qq -Enable      # install and set the default model
+dsh --profile qq headless "hello"                # verify
+```
+
+</details>
+
+---
 
 ---
 

@@ -92,3 +92,8 @@ jobs:
           pip install --quiet qrcode
           node tools/qr-matrix-dump.mjs > /tmp/qr-js.json
           python3 tools/verify_qr.py /tmp/qr-js.json
+
+      - name: Documentation links resolve
+        run: |
+          # 文档里的相对链接与锚点都要能对上，否则读者点了会 404。
+          python3 tools/check_doc_links.py

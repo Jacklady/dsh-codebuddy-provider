@@ -6,7 +6,31 @@
 - 域级降级：所有账号都失效时自动换域重试（风控按「域 + 账号」隔离）
 - token 自动续期：临近过期时调用官方刷新接口并原子写回登录文件
 - 官方协议：使用与官方 CLI 一致的请求身份与 UA，通过服务端渠道校验
+- **扫码登录**：内置零依赖 QR 编码器，终端直接出码，手机扫一下就登录
 - **手动配置模型 API**：任意 OpenAI 兼容端点都能在 dsh 里配，不限于 CodeBuddy
+
+---
+
+## 📖 操作教程
+
+**第一次用请看这里** → [完整操作教程（中文）](./docs/guide.zh.md) ·
+[Full user guide (English)](./docs/guide.md)
+
+教程包含：四个使用场景的手把手步骤、服务器/无图形界面环境的部署方式、
+多账号管理、**8 类常见故障的排查表**、命令速查表。
+
+<details>
+<summary>30 秒速览</summary>
+
+```bash
+git clone https://github.com/Jacklady/dsh-codebuddy-provider.git
+cd dsh-codebuddy-provider
+node scripts/login.mjs                          # 扫码登录
+.\scripts\install.ps1 -Profile qq -Enable        # 安装并切默认模型
+dsh --profile qq headless "你好"                # 验证
+```
+
+</details>
 
 ---
 
