@@ -44,11 +44,13 @@ jobs:
 
       - name: No credentials committed
         run: |
+          # 排除本文件自身：扫描用的正则写在 YAML 里，会匹配到自己。
           if grep -rInE 'eyJhbGciOi|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,}' \
-               --exclude-dir=node_modules . ; then
+               --exclude-dir=node_modules --exclude-dir=.git --exclude=ci.yml . ; then
             echo 'possible credential material found in the repository'
             exit 1
           fi
+          echo 'no credential material found'
 
       - name: Plugin loads and exposes its exports
         run: |
