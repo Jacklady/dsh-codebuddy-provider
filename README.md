@@ -1,62 +1,77 @@
 # dsh-codebuddy-provider
 
-> 中文文档见 [README.zh.md](./README.zh.md)
+> Chinese documentation: [README.zh.md](./README.zh.md)
 
-把 **CodeBuddy / WorkBuddy 官方账号**接入 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（dsh），并允许你在 dsh 里**手动配置任意模型 API**。
+Connects **official CodeBuddy / WorkBuddy accounts** to [DeepSeek Harness](https://github.com/deepseek-ai/dsh), and lets you configure any model API manually inside dsh.
 
-- 多账号轮换：某个号被风控时自动冷却并切到下一个
-- 域级降级：所有账号都失效时自动换域重试（风控按「域 + 账号」隔离）
-- token 自动续期：临近过期时调用官方刷新接口并原子写回登录文件
-- 官方协议：使用与官方 CLI 一致的请求身份与 UA，通过服务端渠道校验
-- **手动配置模型 API**：任意 OpenAI 兼容端点都能在 dsh 里配，不限于 CodeBuddy
+- Multi-account rotation: an account hit by risk control is cooled down and the next one takes over
+- Domain fallback: when every account fails, the request is retried against the other domain (risk control is isolated per domain + account)
+- Automatic token renewal: the official refresh endpoint is called shortly before expiry and the login file is written back atomically
+- Official protocol: the request identity and User-Agent match the official CLI, passing the server-side channel check
+- **Manual model API configuration**: any OpenAI-compatible endpoint can be configured in dsh, not just CodeBuddy
 
 ---
 
 ## Quick Start
 
-### 1. 准备账号
+### 1. Get an account
 
-用官方 CodeBuddy / WorkBuddy 客户端登录一次。登录文件位于：
+Two options, pick either one:
 
-| 平台 | 路径 |
+**Option A: QR-code login (recommended, no manual file needed)**
+
+```bash
+node scripts/login.mjs
+```
+
+The terminal prints a QR code and the authorization URL - just scan it. See "QR-code login" below.
+
+**Option B: sign in once with the official client**
+
+The login file lives at:
+
+| Platform | Path |
 |---|---|
 | Windows | `%LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth\*.info` |
 | macOS | `~/Library/Application Support/CodeBuddyExtension/Data/Public/auth/*.info` |
 | Linux | `$XDG_DATA_HOME/CodeBuddyExtension/Data/Public/auth/*.info` |
 
-> 也可以从别处导入 `.info` 文件（见下方「导入账号」）。
+> You can also import `.info` files from elsewhere (see "Importing accounts" below).
 
-### 2. 安装
+### 2. Install
 
 ```powershell
-# 安装到指定 profile
+# install into the given profile
 .\scripts\install.ps1 -Profile qq
 
-# 安装 + 导入账号 + 设为默认模型
+# install + import accounts + set as default model
 .\scripts\install.ps1 -Profile qq -Accounts C:\path\to\accounts -Enable
 
-# 卸载
+# install + start the QR-code login right away
+.\scripts\install.ps1 -Profile qq -Login
+
+# uninstall
 .\scripts\install.ps1 -Profile qq -Uninstall
 ```
 
-### 3. 验证
+### 3. Verify
 
 ```bash
-dsh --profile qq headless "你好"
+dsh --profile qq headless "hello"
 ```
 
 ---
 
 ## Configuring model APIs manually
 
-本插件**不重复实现**通用 provider——那部分由官方 `@deepseek-ai/dsh-llm-pi-ai` 提供。
-你可以在 dsh 的 `cordis.patch.yml` 里自由声明任意 OpenAI 兼容端点：
+This plugin does **not** reimplement the generic provider - that part is provided by the official `@deepseek-ai/dsh-llm-pi-ai`.
+You can declare any OpenAI-compatible endpoint in the dsh `cordis.patch.yml`:
 
 ```yaml
 - id: llm-pi-ai
   config:
     providers:
-      # 任意 OpenAI 兼容 API —— 走官方能力，无需本插件
+      # any OpenAI-compatible API - handled by the official seam, no plugin needed
       my-gateway:
         displayName: My Gateway
         api: openai-completions
@@ -67,7 +82,7 @@ dsh --profile qq headless "你好"
             contextWindow: 128000
             maxTokens: 8000
 
-      # 官方 DeepSeek
+      # official DeepSeek
       deepseek:
         displayName: DeepSeek
         api: openai-completions
@@ -79,50 +94,109 @@ dsh --profile qq headless "你好"
             maxTokens: 8192
 ```
 
-然后在 dsh 的 Models 页面里把 API Key 存进凭据服务，或直接导出环境变量
+Then store the API key in the credential service from dsh's Models page, or export it as an environment variable
 `MY_GATEWAY_KEY` / `DEEPSEEK_API_KEY`。
 
-> `apiKeyEnv` 指向的是**凭据引用**，不是密钥本身；配置文件里永远不写明文密钥。
+> `apiKeyEnv` points at a **credential reference**, not the key itself; never put a plaintext key in the config file.
 
 ### Switching the default model
 
 ```yaml
 - id: agent-default-model
   config:
-    provider: codebuddy-official   # 插件提供的 CodeBuddy 路由
-    # 或 my-gateway / deepseek / ...
+    provider: codebuddy-official   # the CodeBuddy route provided by this plugin
+    # or my-gateway / deepseek / ...
     model: deepseek-v4.1-flash
 ```
 
 ### Two kinds of routes
 
-| 路由 | 由谁提供 | 用途 |
+| Route | Provided by | Purpose |
 |---|---|---|
-| `codebuddy-official` | 本插件 | CodeBuddy 官方账号：官方登录态鉴权、多账号轮换、渠道校验头 |
-| `codebuddy` / `my-gateway` / 其它 | 官方 `llm-pi-ai` | 任意 OpenAI 兼容端点，自己配 `baseURL` + `apiKeyEnv` |
+| `codebuddy-official` | this plugin | Official CodeBuddy accounts: login-state auth, multi-account rotation, channel-check headers |
+| `codebuddy` / `my-gateway` / others | official `llm-pi-ai` | Any OpenAI-compatible endpoint; configure `baseURL` + `apiKeyEnv` yourself |
 
-> CodeBuddy 官方账号**不能**写成普通的 OpenAI 兼容 provider：那样会绕过官方登录态
-> 鉴权，并因缺少渠道校验头被服务端拦截（错误码 `11128`）。
+> The official CodeBuddy account **cannot** be expressed as a plain OpenAI-compatible provider:/n> that would bypass the official login-state authentication and the request would be rejected by
+> the server for missing the channel-check headers (error code `11128`).
+
+---
+
+## QR-code login
+
+No need to prepare `.info` files by hand - just scan the code.
+
+```bash
+node scripts/login.mjs            # QR login (defaults to the www.workbuddy.ai domain)
+npm run login                     # same thing
+```
+
+The terminal prints the authorization URL and a QR code. Scan it with your phone (or open the URL in a browser):
+
+```
+Complete the authorization with your phone or a browser:
+  https://www.workbuddy.ai/login?platform=workbuddy&state=xxxxxxxx
+
+Or scan the code below:
+█████████████████████████
+██                       ██
+██  ▄▄▄▄▄▄▄▄▄  ▄▄▄  ▄▄▄  ██
+...
+```
+
+Once confirmed, the credential is written to the official login directory in the official format, and the plugin picks it up automatically.
+
+You can also start the QR login right after installing:
+
+```powershell
+.\scripts\install.ps1 -Profile qq -Login
+```
+
+### Options
+
+| Option | Description |
+|---|---|
+| `--domain <domain>` | Login domain, default `www.workbuddy.ai`; options: `www.codebuddy.ai` / `www.codebuddy.cn` |
+| `--no-qr` | Do not render the QR code, only print the link |
+| `--open` | Open the authorization page in the default browser |
+
+### How the QR-code login works
+
+The official CLI login is essentially an authorization-code-for-token exchange. The plugin calls the very same official endpoints:
+
+```
+POST /v2{prefix}/auth/state?platform=<p>   -> get the state and the authorization URL
+        | (the user scans the code / signs in on the authorization page)
+GET  /v2{prefix}/auth/token?state=<state>  -> poll until the token comes back
+        ↓
+GET  /v2/plugin/account                   -> fetch the account profile
+        ↓
+write <authDir>/workbuddy-desktop-ai.<uid>.info
+```
+
+While polling, the server returns `code 11217`（`login ing...`），meaning "still waiting for the scan to be confirmed".
+
+The QR code is produced by the built-in **dependency-free QR encoder** (`src/qr.js`) - it pulls in no
+It supports versions 1-10 with EC levels L/M (19-271 bytes) - an authorization URL is usually around 100 bytes.
 
 ---
 
 ## Importing accounts
 
-`.info` 文件即官方登录态。每个账号一个文件，可并存。
+If you already have `.info` files (exported by the official client, or given to you), you can import them directly:
 
 ```powershell
-# 复制账号文件到官方登录目录
+# copy the account files into the official login directory
 Copy-Item C:\accounts\*.info "$env:LOCALAPPDATA\CodeBuddyExtension\Data\Public\auth\"
 ```
 
-或安装时一并完成：
+Or do it as part of the installation:
 
 ```powershell
 .\scripts\install.ps1 -Profile qq -Accounts C:\accounts
 ```
 
-**注意**：WorkBuddy 桌面端写的 `workbuddy-desktop.info` 使用 `$wbEncrypted` 加密，
-其中的 token 是密文，插件会自动跳过。请使用明文的 `workbuddy-desktop-ai*.info`。
+**Note**: the `workbuddy-desktop.info` written by the WorkBuddy desktop client uses `workbuddy-desktop.info`  `$wbEncrypted` 
+encrypted storage, so its token is ciphertext and the plugin skips it automatically. Use the plaintext `workbuddy-desktop-ai*.info`。
 
 ---
 
@@ -131,43 +205,45 @@ Copy-Item C:\accounts\*.info "$env:LOCALAPPDATA\CodeBuddyExtension\Data\Public\a
 ```
 dsh (agent loop)
   │
-  ├─ llm-pi-ai (官方) ──► 手动配置的任意模型 API
+  ├─ llm-pi-ai (official) ──► any model API you configured manually
   │
-  └─ llm-codebuddy (本插件) ──► route: codebuddy-official
+  └─ llm-codebuddy (this plugin) ──► route: codebuddy-official
         │
-        ├─ 读取官方 .info 登录文件（多账号，自动发现）
-        ├─ 注入官方渠道校验头 (x-conversation-* / x-agent-* / x-ide-*)
-        ├─ 首条消息补 system（官方要求）
-        ├─ 403 / 11140 → 该号冷却 30 分钟 → 换号
-        ├─ 401 → 刷新 token 重试 → 仍失败换号
-        └─ 全部账号失效 → 换域重试 (workbuddy.ai ⇄ copilot.tencent.com)
+        ├─ read the official .info login files (multi-account, auto-discovered)
+        ├─ inject the official channel-check headers (x-conversation-* / x-agent-* / x-ide-*)
+        ├─ prepend the first message with system (required by the official backend)
+        ├─ 403 / 11140 -> cool down that account for 30 minutes -> switch to the next one
+        ├─ 401 -> refresh the token and retry -> switch accounts if it still fails
+        └─ every account failed -> retry against the other domain (workbuddy.ai ⇄ copilot.tencent.com)
 ```
 
 ### Adapter contract notes
 
-dsh 的 LLM 适配器契约（`LlmAdapter`）要求实现：
+The dsh LLM adapter contract (`LlmAdapter`) requires implementing:
 
-- `providerInfo()` → `{ id, name }`（`id` 必须等于路由名）
+- `providerInfo()` -> `{ id, name }` (`id` must equal the route name)
 - `listModels()` → `LlmModelInfo[]`（`provider` / `id` / `name`）
-- `resolveModel()` → `LlmResolvedModelInfo`（附带 `context` / `defaultMaxTokens`）
-- `prepareCall()` → `{ model, stream }`，把模型元数据与同一次 generation 的流绑定
-- `stream()` → dsh 的 chunk 序列：
+- `resolveModel()` -> `LlmResolvedModelInfo` (with `context` / `defaultMaxTokens`)
+- `prepareCall()` -> `{ model, stream }`, binding the model metadata to the stream of the same generation
+- `stream()` -> the dsh chunk sequence:
   `block-start(text) → text-delta* → block-end → usage → finish`
 
-CodeBuddy 官方只接受 `stream: true`，因此非流式请求由插件内部转成流式再解析。
+The official CodeBuddy backend only accepts `stream: true`, so the plugin turns non-streaming
+requests into a stream internally and parses them back.
 
-### 为什么需要专门的插件
+### Why a dedicated plugin is needed
 
-CodeBuddy 的鉴权不是 API Key，而是官方客户端写入的登录态；并且服务端对请求做
-**渠道校验**（错误码 `11128`「Request blocked」），要求：
+CodeBuddy authentication is not an API key but the login state written by the official client.
+The server also performs a **channel check** on every request (error code `11128`
+"Request blocked"), which requires:
 
-- 首条消息必须是 `role: system`
-- 带齐 `x-user-id` / `x-domain` / `x-product` / `x-request-id` /
+- the first message must be `role: system`
+- the full header set `x-user-id` / `x-domain` / `x-product` / `x-request-id` /
   `x-conversation-id` / `x-conversation-request-id` / `x-conversation-message-id` /
   `x-agent-intent` / `x-agent-type` / `x-agent-runtime` / `x-ide-type` / `x-ide-version`
-- User-Agent 形如 `CLI/<version> CodeBuddy/<version>`
+- a User-Agent shaped like `CLI/<version> CodeBuddy/<version>`
 
-这些无法用通用的 OpenAI 兼容配置表达，所以单独实现。
+None of this can be expressed with a generic OpenAI-compatible config, so it is implemented separately.
 
 ---
 
@@ -178,10 +254,10 @@ CodeBuddy 的鉴权不是 API Key，而是官方客户端写入的登录态；�
 ```yaml
 - id: llm-codebuddy
   config:
-    account: ''              # 固定某个账号；留空则自动轮换
-    cooldownMs: 1800000      # 账号冷却时长（默认 30 分钟）
-    minIntervalMs: 1200      # 相邻请求最小间隔
-    userAgent: ''            # 覆盖 UA；留空用官方默认
+    account: ''              # pin a specific account; empty means automatic rotation
+    cooldownMs: 1800000      # account cooldown (30 minutes by default)
+    minIntervalMs: 1200      # minimum interval between adjacent requests
+    userAgent: ''            # override the UA; empty uses the official default
     displayName: 'CodeBuddy'
 ```
 
@@ -189,18 +265,27 @@ CodeBuddy 的鉴权不是 API Key，而是官方客户端写入的登录态；�
 
 ## FAQ
 
-**Q: 提示 `no CodeBuddy login found`**
-没有找到明文 `.info` 文件。确认路径正确，且不是加密版。
+**Q: It says `no CodeBuddy login found`**
+No plaintext `.info` file was found. Check the path, and make sure it is not the encrypted variant.
 
-**Q: 一直报 `11128 / Request blocked`**
-请求没通过官方渠道校验。检查：首条消息是否为 system、请求头是否完整、
-UA 是否被自定义成了非官方格式。
+**Q: It keeps reporting `11128 / Request blocked`**
+The request failed the official channel check. Verify that the first message is a system message,
+that all headers are present, and that the UA was not overridden to a non-official format.
 
-**Q: 报 `401`**
-token 过期或该域不接受这个账号。插件会自动尝试刷新；仍失败则换域。
+**Q: It reports `401`**
+The token expired, or the domain does not accept this account. The plugin tries to refresh it
+automatically and falls back to the other domain if that fails.
 
-**Q: 想加更多账号**
-直接往登录目录放更多 `.info` 文件即可，插件会自动发现。
+**Q: How do I add more accounts?**
+Just drop more `.info` files into the login directory - the plugin discovers them automatically.
+You can also run `node scripts/login.mjs` again to add an account by QR code.
+
+**Q: The QR login says `login timed out`**
+The code was not confirmed within 5 minutes. Just run `node scripts/login.mjs` again.
+
+**Q: The QR code does not scan**
+The terminal may not support the `▀▄` half-block characters (common on older Windows consoles).
+Use `--no-qr` to print the link only and open it on your phone, or switch to a UTF-8 capable terminal.
 
 ---
 

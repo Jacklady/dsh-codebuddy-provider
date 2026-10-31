@@ -44,3 +44,17 @@ export {
   openCredentialManager,
   fetchModelCatalog,
 } from './credentials.js';
+
+// 扫码登录
+export {
+  PLATFORMS,
+  DEFAULT_LOGIN_DOMAIN,
+  startLogin,
+  waitForToken,
+  fetchAccount,
+  writeAccountFile,
+  login,
+} from './login.js';
+
+// 零依赖 QR 码编码器（终端渲染扫码登录链接）
+export { encodeQr, renderQrTerminal, qrToTerminal } from './qr.js';

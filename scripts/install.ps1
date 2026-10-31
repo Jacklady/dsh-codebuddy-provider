@@ -34,6 +34,12 @@ param(
   # 安装完成后是否把默认模型切到 CodeBuddy
   [switch]$Enable,
 
+  # 安装完成后是否进入扫码登录（交互式，需要扫终端里的二维码）
+  [switch]$Login,
+
+  # 扫码登录使用的域
+  [string]$LoginDomain = 'www.workbuddy.ai',
+
   # 卸载
   [switch]$Uninstall,
 
@@ -213,7 +219,18 @@ if ($Enable) {
   }
 }
 
-# 6) 校验
+# 6) 扫码登录（可选）
+if ($Login) {
+  Write-Step "Starting QR-code login"
+  $loginScript = Join-Path $SourceDir 'scripts\login.mjs'
+  if (-not (Test-Path $loginScript)) {
+    Write-Note "login script not found; skipped QR login"
+  } else {
+    & $node $loginScript --domain $LoginDomain 2>&1 | ForEach-Object { Write-Host "    $_" }
+  }
+}
+
+# 7) 校验
 Write-Step "Validating profile configuration"
 $dshEntry = Join-Path $env:APPDATA 'npm\node_modules\@deepseek-ai\dsh\lib\bin.js'
 if (-not (Test-Path $dshEntry)) {

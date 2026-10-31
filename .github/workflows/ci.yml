@@ -84,3 +84,11 @@ jobs:
             if (typeof m.apply !== 'function') throw new Error('apply must be a function');
             console.log('exports OK:', Object.keys(m).length, 'name =', m.name);
           "
+
+      - name: QR encoder matches the reference implementation
+        run: |
+          # 用 Python 的 qrcode 库（字节模式）交叉验证 QR 矩阵是否逐位一致。
+          # 参考实现会自动挑选最优编码模式，verify_qr.py 里强制用字节模式以便对比。
+          pip install --quiet qrcode
+          node tools/qr-matrix-dump.mjs > /tmp/qr-js.json
+          python3 tools/verify_qr.py /tmp/qr-js.json

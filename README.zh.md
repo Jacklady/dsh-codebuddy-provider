@@ -14,7 +14,19 @@
 
 ### 1. 准备账号
 
-用官方 CodeBuddy / WorkBuddy 客户端登录一次。登录文件位于：
+两种方式，任选其一：
+
+**方式 A：扫码登录（推荐，无需手工准备文件）**
+
+```bash
+node scripts/login.mjs
+```
+
+终端会显示二维码与授权链接，手机扫一下即可。详见「扫码登录」一节。
+
+**方式 B：用官方客户端登录一次**
+
+登录文件位于：
 
 | 平台 | 路径 |
 |---|---|
@@ -32,6 +44,9 @@
 
 # 安装 + 导入账号 + 设为默认模型
 .\scripts\install.ps1 -Profile qq -Accounts C:\path\to\accounts -Enable
+
+# 安装 + 直接进入扫码登录
+.\scripts\install.ps1 -Profile qq -Login
 
 # 卸载
 .\scripts\install.ps1 -Profile qq -Uninstall
@@ -104,9 +119,68 @@ dsh --profile qq headless "你好"
 
 ---
 
+## 扫码登录
+
+不需要手工准备 `.info` 文件——直接扫码即可。
+
+```bash
+node scripts/login.mjs            # 扫码登录（默认 www.workbuddy.ai 域）
+npm run login                     # 同上
+```
+
+终端会显示授权链接与二维码，用手机扫码（或用浏览器打开链接）完成授权：
+
+```
+请用手机或浏览器完成授权：
+  https://www.workbuddy.ai/login?platform=workbuddy&state=xxxxxxxx
+
+或直接扫描下方二维码：
+█████████████████████████
+██                       ██
+██  ▄▄▄▄▄▄▄▄▄  ▄▄▄  ▄▄▄  ██
+...
+```
+
+扫码确认后，凭证会按官方格式写入登录目录，插件自动发现并使用。
+
+也可以在安装时直接进入扫码：
+
+```powershell
+.\scripts\install.ps1 -Profile qq -Login
+```
+
+### 选项
+
+| 选项 | 说明 |
+|---|---|
+| `--domain <域>` | 登录域，默认 `www.workbuddy.ai`；可选 `www.codebuddy.ai` / `www.codebuddy.cn` |
+| `--no-qr` | 不渲染二维码，只打印链接 |
+| `--open` | 用默认浏览器打开授权页 |
+
+### 扫码登录的原理
+
+官方 CLI 的登录本质是「授权码换 token」，插件直接调用同一套官方接口：
+
+```
+POST /v2{prefix}/auth/state?platform=<p>   → 拿到 state 与授权页地址
+        ↓ （用户在授权页完成扫码 / 账号登录）
+GET  /v2{prefix}/auth/token?state=<state>  → 轮询直到返回 token
+        ↓
+GET  /v2/plugin/account                   → 拉取账号资料
+        ↓
+写入 <authDir>/workbuddy-desktop-ai.<uid>.info
+```
+
+轮询期间服务端返回 `code 11217`（`login ing...`），表示「还在等扫码确认」。
+
+二维码由内置的**零依赖 QR 编码器**（`src/qr.js`）渲染，不引入任何 npm 依赖，
+支持版本 1~10、纠错等级 L/M，容量 19~271 字节——登录链接通常在 100 字节左右。
+
+---
+
 ## 导入账号
 
-`.info` 文件即官方登录态。每个账号一个文件，可并存。
+如果你已经有 `.info` 文件（官方客户端导出的、或别人给的），也可以直接导入：
 
 ```powershell
 # 复制账号文件到官方登录目录
@@ -198,7 +272,15 @@ UA 是否被自定义成了非官方格式。
 token 过期或该域不接受这个账号。插件会自动尝试刷新；仍失败则换域。
 
 **Q: 想加更多账号**
-直接往登录目录放更多 `.info` 文件即可，插件会自动发现。
+直接往登录目录放更多 `.info` 文件即可，插件会自动发现。也可以再跑一次 `node scripts/login.mjs`
+扫码加号。
+
+**Q: 扫码时提示 `login timed out`**
+二维码在 5 分钟内没有完成确认。重新跑一次 `node scripts/login.mjs` 即可。
+
+**Q: 二维码扫不出来**
+终端可能不支持 `▀▄` 半块字符（老版本 Windows 控制台常见）。加 `--no-qr`
+只打印链接，用手机浏览器打开；或者换一个支持 UTF-8 的终端。
 
 ---
 
